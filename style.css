@@ -7,3 +7,4 @@ tr.editing{background:#263e4b}tr.editing td{vertical-align:top}tr.editing input:
 .legal-width-line{position:absolute;left:0;right:0;border-top:2px dashed #f6be74;z-index:2;pointer-events:none}.placement.overwidth{border:2px solid #f6be74}.badge.overwidth{background:#614b28;color:#ffe2a0}
 
 .summary-section-title{padding:22px 24px 12px;border-top:1px solid var(--line);background:#20313f}.summary-section-title h3{margin:0;font-size:1.15rem}.summary-section-title p{margin:3px 0 0;color:var(--muted);font-size:14px}.summary-empty{padding:24px;color:var(--muted)}
+.balance-midline{position:absolute;left:0;right:0;top:50%;border-top:1px dashed #72c9d987;z-index:1;pointer-events:none}

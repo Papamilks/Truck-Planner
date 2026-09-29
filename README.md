@@ -50,7 +50,7 @@ The 100-item workbook in `examples/` exercises all six equipment types, opt-in r
 
 - Decks are 102 inches wide. A piece placed at 103–174 inches wide may overhang; nothing else can occupy the same front-to-rear span beside it. Multiple overwidth pieces may share a truck in sequence.
 - The 53-foot Stepdeck and Lo-Pro Stepdeck have a separate 102-inch upper deck and a lower deck. Stretch Step and Stretch RGN are single-piece equipment.
-- Floor rotation is considered only when selected for that cargo row. The planner checks length, height, weight, and floor collisions.
+- Floor rotation is considered only when selected for that cargo row. The planner checks length, height, weight, and floor collisions. It aims to balance weight between the top and bottom halves of the trailer diagram (the two sides across deck width), and shows the resulting percentages on each truck. This is a planning goal, not a hard rejection rule.
 - Cargo wider than 174 inches, taller than 150 inches, or heavier than 55,000 pounds is excluded from automatic packing for heavy haul review.
 - The Excel export provides a truck summary and a heavy haul review sheet.
 

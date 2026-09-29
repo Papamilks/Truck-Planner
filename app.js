@@ -57,6 +57,21 @@ function fits(i,s){
   if(i.weight>s.max_weight)r.push('weight');
   return r;
 }
+// The diagram's top and bottom are the two sides across deck width.
+// Split a piece's weight by its footprint across the deck centerline.
+// Overwidth pieces are treated as centered across the deck.
+function lateralWeight(load,extra){
+  const half=Math.min(load.spec.width,LEGAL_WIDTH)/2;
+  let top=0,bottom=0;
+  for(const p of extra?[...load.placements,extra]:load.placements){
+    const weight=p.item.weight;
+    if(p.width>half*2){top+=weight/2;bottom+=weight/2;continue}
+    const topWidth=Math.max(0,Math.min(p.y+p.width,half)-Math.max(p.y,0));
+    top+=weight*topWidth/p.width;
+    bottom+=weight*(p.width-topWidth)/p.width;
+  }
+  return {top,bottom};
+}
 function position(load,i,upcoming=[]){
   if(singlePieceOnly(load.spec)&&load.placements.length)return null;
   const candidates=[];
@@ -65,9 +80,10 @@ function position(load,i,upcoming=[]){
     const placedHere=load.placements.filter(p=>p.zone===zone.name);
     const xs=[...new Set([zone.start,...placedHere.map(p=>p.x+p.length)])]
       .filter(x=>x>=zone.start&&x<zone.start+zone.length).sort((a,b)=>a-b);
-    const ys=[...new Set([0,...placedHere.map(p=>p.y+p.width)])]
-      .filter(y=>y<zone.width).sort((a,b)=>a-b);
-    for(const [length,width,rotated] of orientations(i))for(const y of ys)for(const x of xs){
+    const ysFor=width=>width>zone.width?[0]:
+      [...new Set([0,...placedHere.map(p=>p.y+p.width),zone.width-width])]
+        .filter(y=>y>=0&&y+width<=zone.width).sort((a,b)=>a-b);
+    for(const [length,width,rotated] of orientations(i))for(const y of ysFor(width))for(const x of xs){
       const overwidth=width>zone.width;
       if(x+length>zone.start+zone.length||width>MAX_OVERWIDTH||(overwidth?y!==0:y+width>zone.width))continue;
       // Overwidth pieces block only their own longitudinal span, allowing
@@ -76,8 +92,10 @@ function position(load,i,upcoming=[]){
         const alongLength=!(x+length<=p.x||p.x+p.length<=x);
         return alongLength&&(overwidth||p.width>zone.width||!(y+width<=p.y||p.y+p.width<=y));
       }))continue;
-      // Follow the highest free space, then the leftmost position at that height.
-      candidates.push({score:[y,x,length>=width?0:1,x+length,y+width],placement:{item:i,x,y,length,width,rotated,zone:zone.name}});
+      const placement={item:i,x,y,length,width,rotated,zone:zone.name};
+      const balance=lateralWeight(load,placement);
+      // Prefer a closer top/bottom weight split, then retain top-left flow.
+      candidates.push({score:[x+y+100*Math.abs(balance.top-balance.bottom)/(load.weight+i.weight),y,x,length>=width?0:1],placement});
     }
   }
   const compare=(a,b)=>{for(let k=0;k<a.score.length;k++)if(a.score[k]!==b.score[k])return a.score[k]-b.score[k];return 0};
@@ -99,6 +117,29 @@ function position(load,i,upcoming=[]){
     if(count>bestCount){bestCount=count;best=candidate}
   }
   return best.placement;
+}
+function rebalanceWidth(load){
+  // After truck assignment, shift pieces only across the deck. Never change
+  // their front-to-rear position or let a shift create a floor overlap.
+  for(let pass=0;pass<2;pass++)for(const p of load.placements){
+    const zone=zones(load.spec).find(z=>z.name===p.zone);
+    if(!zone||p.width>zone.width)continue;
+    const others=load.placements.filter(q=>q!==p);
+    const candidates=[p.y,0,zone.width-p.width,(zone.width-p.width)/2,
+      ...others.filter(q=>q.zone===p.zone).flatMap(q=>[q.y+q.width,q.y-p.width])];
+    let bestY=p.y;
+    let bestDiff=(()=>{const w=lateralWeight(load);return Math.abs(w.top-w.bottom)})();
+    for(const y of candidates){
+      if(y<0||y+p.width>zone.width)continue;
+      if(others.some(q=>q.zone===p.zone&&!(p.x+p.length<=q.x||q.x+q.length<=p.x)&&
+        (q.width>zone.width||!(y+p.width<=q.y||q.y+q.width<=y))))continue;
+      const candidate={...p,y};
+      const w=lateralWeight({spec:load.spec,placements:others},candidate);
+      const diff=Math.abs(w.top-w.bottom);
+      if(diff<bestDiff-0.001){bestDiff=diff;bestY=y}
+    }
+    p.y=bestY;
+  }
 }
 function fillOpenStepdecks(loads,items,start){
   for(const load of loads.filter(l=>["53' Stepdeck","53' Lo-Pro Stepdeck"].includes(l.spec.name))){
@@ -150,7 +191,7 @@ choices.sort((a,b)=>{
   return !useFlatbed?a.load.spec.height-b.load.spec.height||b.weight/b.load.spec.max_weight-a.weight/a.load.spec.max_weight||a.end-b.end:
   a.load.spec!==flatbed?b.weight/b.load.spec.max_weight-a.weight/a.load.spec.max_weight||a.end-b.end:
   a.load.placements.reduce((v,q)=>v+q.length*q.width,0)-b.load.placements.reduce((v,q)=>v+q.length*q.width,0)||a.end-b.end;
-});let load,p;if(choices.length){({load,p}=choices[0])}else{const spec=useFlatbed?flatbed:state.specs.find(s=>!fits(i,s).length&&(!singlePieceOnly(s)||!state.specs.some(other=>!singlePieceOnly(other)&&!fits(i,other).length)));load={number:loads.length+1,spec,placements:[],weight:0};p=position(load,i,upcoming);loads.push(load)}load.placements.push(p);load.weight+=i.weight}return {loads,rejected,heavy}}
+});let load,p;if(choices.length){({load,p}=choices[0])}else{const spec=useFlatbed?flatbed:state.specs.find(s=>!fits(i,s).length&&(!singlePieceOnly(s)||!state.specs.some(other=>!singlePieceOnly(other)&&!fits(i,other).length)));load={number:loads.length+1,spec,placements:[],weight:0};p=position(load,i,upcoming);loads.push(load)}load.placements.push(p);load.weight+=i.weight}for(const load of loads)rebalanceWidth(load);return {loads,rejected,heavy}}
 function showTab(name){document.querySelectorAll('.tab').forEach(b=>{const a=b.dataset.tab===name;b.classList.toggle('active',a);b.setAttribute('aria-selected',String(a))});document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===name))}
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 const summaryHeaders=['Truck','Trailer Type','Piece Count','Total Length (in)','Total Width (in)','Total Height (in)','Total Weight (lb)','Width Status'];
@@ -185,12 +226,16 @@ for(const l of p.loads){
   const usedL=Math.max(0,...l.placements.map(q=>q.x+q.length));
   const usedW=Math.max(0,...l.placements.map(q=>q.y+q.width));
   const height=Math.max(0,...l.placements.map(q=>q.item.height));
-  const displayWidth=Math.max(l.spec.width,usedW);
+  const deckWidth=Math.min(l.spec.width,LEGAL_WIDTH);
+  const displayWidth=Math.max(deckWidth,usedW);
+  const deckOffset=(displayWidth-deckWidth)/2;
   const overwidthCount=l.placements.filter(q=>q.width>LEGAL_WIDTH).length;
-  const legalLine=displayWidth>LEGAL_WIDTH?'<div class="legal-width-line" style="top:'+(LEGAL_WIDTH/displayWidth*100)+'%"></div>':'';
+  const legalLine=displayWidth>deckWidth?'<div class="legal-width-line" style="top:'+(deckOffset/displayWidth*100)+'%"></div><div class="legal-width-line" style="top:'+((deckOffset+deckWidth)/displayWidth*100)+'%"></div>':'';
+  const sides=lateralWeight(l);
+  const sideLabel='Top '+fmt(sides.top/l.weight*100,0)+'% · Bottom '+fmt(sides.bottom/l.weight*100,0)+'% of weight';
   const weightLabel=fmt(l.weight,0)+' / '+fmt(l.spec.max_weight,0)+' lb ('+fmt(l.weight/l.spec.max_weight*100,0)+'%)';
   const divider=l.spec.upper_length?'<div class="deck-divider" style="left:'+(l.spec.upper_length/fullLength*100)+'%"><span>Upper · '+fmt(l.spec.upper_length)+' in</span><span>Lower · '+fmt(l.spec.length)+' in</span></div>':'';
-  html+='<article class="loadcard"><div class="loadhead"><strong>Truck '+l.number+' · '+esc(l.spec.name)+(singlePieceOnly(l.spec)?' · Single piece':'')+'</strong><span class="loadmeta">'+l.placements.length+' pieces · '+fmt(usedL/12)+' ft occupied through rear · '+weightLabel+(overwidthCount?' · '+overwidthCount+' OD width':'')+'</span></div><div class="loadbody"><div><div class="deck" aria-label="Top down placement diagram">'+divider+legalLine+l.placements.map(q=>'<div class="placement'+(q.width>LEGAL_WIDTH?' overwidth':'')+'" tabindex="0" data-tooltip="'+esc(placementTooltip(q)).replace(/\n/g,'&#10;')+'" aria-describedby="pieceTooltip" aria-label="'+esc(placementTooltip(q)).replace(/\n/g,'; ')+'" style="left:'+(q.x/fullLength*100)+'%;top:'+(q.y/displayWidth*100)+'%;width:'+(q.length/fullLength*100)+'%;height:'+(q.width/displayWidth*100)+'%"><span>'+esc(q.item.item_id)+'</span></div>').join('')+'</div><div class="dimline">Front → rear · '+(l.spec.upper_length?fmt(l.spec.upper_length)+' in upper + ':'')+fmt(l.spec.length)+' in '+(l.spec.upper_length?'lower':'deck')+' · width '+fmt(l.spec.width)+' in deck width'+(overwidthCount?' · '+fmt(displayWidth)+' in cargo width':'')+'</div></div><div><div class="loadmeta">Occupied envelope: '+fmt(usedL)+' × '+fmt(usedW)+' × '+fmt(height)+' in<br>Total weight: '+weightLabel+'</div><div class="loadpieces">'+l.placements.map(q=>'<div>'+esc(q.item.item_id)+' · '+esc(q.zone)+' · '+fmt(q.length/12)+' × '+fmt(q.width/12)+' ft'+(q.rotated?' · rotated':'')+'</div>').join('')+'</div></div></div></article>';
+  html+='<article class="loadcard"><div class="loadhead"><strong>Truck '+l.number+' · '+esc(l.spec.name)+(singlePieceOnly(l.spec)?' · Single piece':'')+'</strong><span class="loadmeta">'+l.placements.length+' pieces · '+fmt(usedL/12)+' ft occupied through rear · '+weightLabel+(overwidthCount?' · '+overwidthCount+' OD width':'')+'</span></div><div class="loadbody"><div><div class="deck" aria-label="Top down placement diagram"><div class="balance-midline"></div>'+divider+legalLine+l.placements.map(q=>'<div class="placement'+(q.width>LEGAL_WIDTH?' overwidth':'')+'" tabindex="0" data-tooltip="'+esc(placementTooltip(q)).replace(/\n/g,'&#10;')+'" aria-describedby="pieceTooltip" aria-label="'+esc(placementTooltip(q)).replace(/\n/g,'; ')+'" style="left:'+(q.x/fullLength*100)+'%;top:'+(((q.width>deckWidth?(deckWidth-q.width)/2:q.y)+deckOffset)/displayWidth*100)+'%;width:'+(q.length/fullLength*100)+'%;height:'+(q.width/displayWidth*100)+'%"><span>'+esc(q.item.item_id)+'</span></div>').join('')+'</div><div class="dimline">Front → rear · '+(l.spec.upper_length?fmt(l.spec.upper_length)+' in upper + ':'')+fmt(l.spec.length)+' in '+(l.spec.upper_length?'lower':'deck')+' · width '+fmt(l.spec.width)+' in deck width'+(overwidthCount?' · '+fmt(displayWidth)+' in cargo width':'')+'<br>'+sideLabel+'</div></div><div><div class="loadmeta">Occupied envelope: '+fmt(usedL)+' × '+fmt(usedW)+' × '+fmt(height)+' in<br>Total weight: '+weightLabel+'</div><div class="loadpieces">'+l.placements.map(q=>'<div>'+esc(q.item.item_id)+' · '+esc(q.zone)+' · '+fmt(q.length/12)+' × '+fmt(q.width/12)+' ft'+(q.rotated?' · rotated':'')+'</div>').join('')+'</div></div></div></article>';
 }
 if(p.rejected.length)html+='<div class="exception"><strong>Unplanned pieces</strong><ul>'+p.rejected.map(x=>'<li>'+esc(x.item.item_id)+': '+esc(x.reason)+'</li>').join('')+'</ul></div>';
 if(!p.loads.length&&!p.rejected.length)html+='<div class="empty">No standard cargo to plan. Review heavy haul pieces separately.</div>';
