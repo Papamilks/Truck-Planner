@@ -25,7 +25,7 @@ From the extracted folder, run `py -m http.server 8000` in Windows PowerShell if
 
 ## Default equipment
 
-All dimensions are inches. Each deck is 102 inches wide, and the initial planning weight limit is 45,000 lb per trailer. Limits can be edited in the Trailer types grid.
+All dimensions are inches. Each deck is 102 inches wide, and most trailers start with a 45,000 lb planning weight limit. RGN and Stretch RGN use 38,000 lb as the legal planning weight and 54,999 lb as the maximum for a single overweight piece. Limits can be edited in the Trailer types grid.
 
 | Equipment | Main/lower deck length | Upper deck length | Main/lower height | Upper height |
 | --- | ---: | ---: | ---: | ---: |
@@ -33,8 +33,8 @@ All dimensions are inches. Each deck is 102 inches wide, and the initial plannin
 | 53' Stepdeck | 522 | 102 | 122 | 102 |
 | 53' Lo-Pro Stepdeck | 522 | 102 | 126 | 102 |
 | Stretch Step | 840 | 102 | 122 | 102 |
-| RGN | 360 | — | 138 | — |
-| Stretch RGN | 720 | — | 138 | — |
+| RGN | 360 | — | 149 | — |
+| Stretch RGN | 720 | — | 149 | — |
 
 ## Use the planner
 
@@ -49,7 +49,7 @@ The 100-item workbook in `examples/` exercises all six equipment types, opt-in r
 ## Planning behavior
 
 - Decks are 102 inches wide. A piece placed at 103–174 inches wide may overhang; nothing else can occupy the same front-to-rear span beside it. Multiple overwidth pieces may share a truck in sequence.
-- The 53-foot Stepdeck and Lo-Pro Stepdeck have a separate 102-inch upper deck and a lower deck. Stretch Step and Stretch RGN are single-piece equipment.
+- The 53-foot Stepdeck and Lo-Pro Stepdeck have a separate 102-inch upper deck and a lower deck. Stretch Step and Stretch RGN are single-piece equipment. RGN may carry multiple pieces at or below 38,000 lb total; any RGN load above that legal planning weight must contain exactly one piece and stay at or below 54,999 lb.
 - Floor rotation is considered only when selected for that cargo row. The planner checks length, height, weight, and floor collisions. It aims to balance weight between the top and bottom halves of the trailer diagram (the two sides across deck width), and shows the resulting percentages on each truck. This is a planning goal, not a hard rejection rule.
 - Cargo wider than 174 inches, taller than 150 inches, or heavier than 55,000 pounds is excluded from automatic packing for heavy haul review.
 - The Excel export provides a truck summary and a heavy haul review sheet.
