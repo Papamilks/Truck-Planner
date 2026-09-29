@@ -41,7 +41,7 @@ All dimensions are inches. Each deck is 102 inches wide, and the initial plannin
 1. Add cargo manually, paste spreadsheet rows, or import CSV, Excel, or a text-based PDF packing list. Scanned PDFs need OCR before import.
 2. Enter dimensions, weight, quantity, and units. Select **Rotate** only for pieces allowed to turn 90 degrees on the deck.
 3. Edit trailer limits in **Trailer types** if needed, then create the plan.
-4. Review the top-down layouts, piece tooltips, total weights, items that could not be placed, and heavy haul review.
+4. Review the top-down layouts and piece tooltips, then open **Summary** to preview the same per-truck totals included in the Excel export. Check unplanned items and heavy haul review.
 5. Select **Export Excel summary** to download a workbook with the Load Plan Summary and Heavy Haul Review sheets.
 
 The 100-item workbook in `examples/` exercises all six equipment types, opt-in rotation, and heavy haul exceptions.
