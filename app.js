@@ -46,9 +46,14 @@ function zones(s){
     : [{name:'Deck',start:0,length:s.length,width:Math.min(s.width,LEGAL_WIDTH),height:s.height}];
 }
 function orientations(i){
-  const options=[[i.length,i.width,false]];
-  if(i.rotatable&&i.length!==i.width)options.push([i.width,i.length,true]);
-  return options;
+  // Rotation is a legal-width correction only. Never rotate a legal-width
+  // piece into an overdimensional orientation or rotate merely to improve fit.
+  // If the entered orientation is overwidth and the 90° orientation is legal,
+  // require the corrected orientation; otherwise preserve the entered one.
+  if(i.rotatable&&i.width>LEGAL_WIDTH&&i.length<=LEGAL_WIDTH){
+    return [[i.width,i.length,true]];
+  }
+  return [[i.length,i.width,false]];
 }
 function fits(i,s){
   const r=[];
@@ -214,7 +219,7 @@ function renderSummary(p){
 }
 function render(){const h=state.items.reduce((a,i)=>a+(heavyReasons(i).length?1:0),0);$('#cargoCount').textContent=state.items.length;$('#trailerCount').textContent=state.specs.length;$('#loadCount').textContent=state.plan?.loads.length||0;$('#heavyCount').textContent=h;
 $('#cargoRows').innerHTML=state.items.length?state.items.map((i,k)=>{
-  if(state.editingItem===k)return '<tr class="editing" data-edit-row="item" data-index="'+k+'"><td><input data-field="item_id" aria-label="Item ID" value="'+esc(i.item_id)+'"></td><td><input data-field="quantity" aria-label="Quantity" type="number" min="1" step="1" value="'+i.quantity+'"></td>'+['length','width','height'].map(key=>'<td><input data-field="'+key+'" aria-label="'+key+'" type="number" min="0.001" step="any" value="'+i[key]+'"></td>').join('')+'<td><input data-field="weight" aria-label="Weight" type="number" min="0.001" step="any" value="'+i.weight+'"></td><td><label class="inline-check"><input data-field="rotatable" aria-label="Rotation allowed" type="checkbox" '+(i.rotatable?'checked':'')+'> Allowed</label></td><td><div class="unit-pair"><select data-field="length_unit" aria-label="Dimension unit">'+['in','ft','mm','cm','m'].map(u=>'<option value="'+u+'" '+(u===i.length_unit?'selected':'')+'>'+u+'</option>').join('')+'</select><select data-field="weight_unit" aria-label="Weight unit">'+['lb','kg'].map(u=>'<option value="'+u+'" '+(u===i.weight_unit?'selected':'')+'>'+u+'</option>').join('')+'</select></div></td><td><div class="rowactions"><button class="save" data-action="saveItem" data-index="'+k+'">Save</button><button data-action="cancelItem" data-index="'+k+'">Cancel</button></div><div class="row-error" role="alert"></div></td></tr>';
+  if(state.editingItem===k)return '<tr class="editing" data-edit-row="item" data-index="'+k+'"><td><input data-field="item_id" aria-label="Item ID" value="'+esc(i.item_id)+'"></td><td><input data-field="quantity" aria-label="Quantity" type="number" min="1" step="1" value="'+i.quantity+'"></td>'+['length','width','height'].map(key=>'<td><input data-field="'+key+'" aria-label="'+key+'" type="number" min="0.001" step="any" value="'+i[key]+'"></td>').join('')+'<td><input data-field="weight" aria-label="Weight" type="number" min="0.001" step="any" value="'+i.weight+'"></td><td><label class="inline-check"><input data-field="rotatable" aria-label="Legal-width rotation" type="checkbox" '+(i.rotatable?'checked':'')+'> Legalize width</label></td><td><div class="unit-pair"><select data-field="length_unit" aria-label="Dimension unit">'+['in','ft','mm','cm','m'].map(u=>'<option value="'+u+'" '+(u===i.length_unit?'selected':'')+'>'+u+'</option>').join('')+'</select><select data-field="weight_unit" aria-label="Weight unit">'+['lb','kg'].map(u=>'<option value="'+u+'" '+(u===i.weight_unit?'selected':'')+'>'+u+'</option>').join('')+'</select></div></td><td><div class="rowactions"><button class="save" data-action="saveItem" data-index="'+k+'">Save</button><button data-action="cancelItem" data-index="'+k+'">Cancel</button></div><div class="row-error" role="alert"></div></td></tr>';
   const heavy=heavyReasons(i).length,overwidth=norm(i).width>LEGAL_WIDTH;
   return '<tr class="'+(heavy?'heavy':'')+'"><td>'+esc(i.item_id)+'</td><td>'+i.quantity+'</td><td>'+fmt(i.length)+' '+i.length_unit+'</td><td>'+fmt(i.width)+' '+i.length_unit+'</td><td>'+fmt(i.height)+' '+i.length_unit+'</td><td>'+fmt(i.weight)+' '+i.weight_unit+'</td><td>'+(i.rotatable?'Yes':'No')+'</td><td><span class="badge '+(heavy?'heavy':overwidth?'overwidth':'')+'">'+(heavy?'Heavy haul':overwidth?'Overdimensional width':'Planning')+'</span></td><td><div class="rowactions"><button data-action="editItem" data-index="'+k+'">Edit</button><button data-action="deleteItem" data-index="'+k+'">Remove</button></div></td></tr>';
 }).join(''):'<tr><td colspan="9" class="empty">No cargo yet. Add a piece above or import a packing list.</td></tr>';
